@@ -9,4 +9,7 @@ export interface ApiDefinition {
     index: typeof routes['products.index']
     store: typeof routes['products.store']
   }
+  transactions: {
+    store: typeof routes['transactions.store']
+  }
 }

@@ -5,13 +5,14 @@ export default class extends BaseSchema {
 
   async up() {
     this.schema.createTable(this.tableName, (table) => {
-      table.increments('id').notNullable()
-      table.string('name').notNullable() // Ex: "Gateway 1"
-      table.integer('priority').notNullable() // Ex: 1 ou 2 (para o Fallback)
-      table.boolean('is_active').defaultTo(true)
 
-      table.timestamp('created_at', { useTz: true }).notNullable()
-      table.timestamp('updated_at', { useTz: true }).notNullable()
+      table.increments('id').notNullable() // Apenas uma vez
+      table.string('name').notNullable()
+      table.boolean('is_active').defaultTo(true)
+      table.integer('priority').notNullable() // 1 é prioridade máxima
+
+      table.timestamp('created_at').notNullable()
+      table.timestamp('updated_at').notNullable()
     })
   }
 

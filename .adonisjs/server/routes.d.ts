@@ -7,6 +7,7 @@ export type ScannedRoutes = {
     'auth.login': { paramsTuple?: []; params?: {} }
     'products.index': { paramsTuple?: []; params?: {} }
     'products.store': { paramsTuple?: []; params?: {} }
+    'transactions.store': { paramsTuple?: []; params?: {} }
   }
   GET: {
     'products.index': { paramsTuple?: []; params?: {} }
@@ -17,6 +18,7 @@ export type ScannedRoutes = {
   POST: {
     'auth.login': { paramsTuple?: []; params?: {} }
     'products.store': { paramsTuple?: []; params?: {} }
+    'transactions.store': { paramsTuple?: []; params?: {} }
   }
 }
 declare module '@adonisjs/core/types/http' {

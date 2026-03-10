@@ -1,4 +1,28 @@
-import { TransactionSchema } from '#database/schema'
+import { DateTime } from 'luxon'
+import { BaseModel, column } from '@adonisjs/lucid/orm'
 
-export default class Transaction extends TransactionSchema {
+export default class Transaction extends BaseModel {
+    @column({ isPrimary: true })
+    declare id: number
+
+    @column()
+    declare userId: number
+
+    @column()
+    declare productId: number
+
+    @column()
+    declare amount: number
+
+    @column()
+    declare gateway: string
+
+    @column()
+    declare status: string
+
+    @column.dateTime({ autoCreate: true })
+    declare createdAt: DateTime
+
+    @column.dateTime({ autoCreate: true, autoUpdate: true })
+    declare updatedAt: DateTime
 }

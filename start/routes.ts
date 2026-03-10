@@ -1,18 +1,28 @@
 import router from '@adonisjs/core/services/router'
+import { middleware } from '#start/kernel'
 
-// Usando a importação direta para acalmar o TypeScript
-const AuthController = () => import('../app/controllers/auth_controller.js')
+// Importações dos Controllers
+const AuthController = () => import('#controllers/auth_controller')
+const ProductsController = () => import('#controllers/products_controller')
+const TransactionsController = () => import('#controllers/transactions_controller')
+
 router.get('/', async () => {
   return { status: 'BeTalent API is running' }
 })
 
-// Rota de Login
+// Rota de Login (Pública)
 router.post('/login', [AuthController, 'login'])
-const ProductsController = () => import('#controllers/products_controller')
-import { middleware } from '#start/kernel'
 
-// Grupo de rotas protegidas (exigem Token)
+// Grupo de rotas protegidas (Exigem Token)
 router.group(() => {
+
+  // Rotas de Produtos
   router.get('/products', [ProductsController, 'index'])
-  router.post('/products', [ProductsController, 'store'])
-}).use(middleware.auth()) // Aqui é onde a mágica da segurança acontece!
+  router.post('/products', [ProductsController, 'store']).use(
+    middleware.role(['ADMIN'])
+  )
+
+  // Rota de Venda (Checkout)
+  router.post('/checkout', [TransactionsController, 'store'])
+
+}).use(middleware.auth())
