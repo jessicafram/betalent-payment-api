@@ -30,6 +30,9 @@ export default class Transaction extends BaseModel {
     @column()
     declare externalId: string | null
 
+    @column()
+    declare idempotencyKey: string | null
+
     @column.dateTime({ autoCreate: true })
     declare createdAt: DateTime
 

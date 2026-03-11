@@ -24,12 +24,6 @@ const routes = {
     tokens: [{"old":"/products","type":0,"val":"products","end":""}],
     types: placeholder as Registry['products.store']['types'],
   },
-  'transactions.store': {
-    methods: ["POST"],
-    pattern: '/checkout',
-    tokens: [{"old":"/checkout","type":0,"val":"checkout","end":""}],
-    types: placeholder as Registry['transactions.store']['types'],
-  },
   'clients.index': {
     methods: ["GET","HEAD"],
     pattern: '/clients',
@@ -47,6 +41,12 @@ const routes = {
     pattern: '/clients/:id',
     tokens: [{"old":"/clients/:id","type":0,"val":"clients","end":""},{"old":"/clients/:id","type":1,"val":"id","end":""}],
     types: placeholder as Registry['clients.show']['types'],
+  },
+  'transactions.store': {
+    methods: ["POST"],
+    pattern: '/checkout',
+    tokens: [{"old":"/checkout","type":0,"val":"checkout","end":""}],
+    types: placeholder as Registry['transactions.store']['types'],
   },
   'transactions.index': {
     methods: ["GET","HEAD"],
