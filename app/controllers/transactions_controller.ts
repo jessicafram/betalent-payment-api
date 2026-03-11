@@ -3,57 +3,57 @@ import Transaction from '#models/transaction'
 import Product from '#models/product'
 import TransactionProduct from '#models/transaction_product'
 import PaymentService from '#services/payment_service'
-
+import { TransactionStatus, GatewayNames } from '../enums/payment_enums.js'
 export default class TransactionsController {
     /**
-     * Realizar uma compra (Checkout)
+     * Processa uma nova compra (Checkout)
      */
     async store({ auth, request, response }: HttpContext) {
         const { products, card_info, client_id } = request.all()
         const user = auth.user!
 
         if (!products || !Array.isArray(products) || products.length === 0) {
-            return response.badRequest({ message: 'O carrinho está vazio.' })
+            return response.badRequest({ message: 'O carrinho está vazio ou em formato inválido.' })
         }
 
-        // Cálculo do total baseado no Banco de Dados
-        let totalCalculado = 0
-        const listaParaSalvar = []
+        let totalAmount = 0
+        const productsToSave = []
 
+        // Validação e cálculo do total com base no banco de dados
         for (const item of products) {
-            const produtoNoBanco = await Product.find(item.id)
-            if (!produtoNoBanco) {
+            const productInDb = await Product.find(item.id)
+            if (!productInDb) {
                 return response.notFound({ message: `Produto ID ${item.id} não encontrado.` })
             }
-            totalCalculado += produtoNoBanco.price * item.quantity
-            listaParaSalvar.push({ productId: produtoNoBanco.id, quantity: item.quantity })
+
+            totalAmount += productInDb.price * item.quantity
+            productsToSave.push({ productId: productInDb.id, quantity: item.quantity })
         }
 
-        // Integração com o Gateway
-        const paymentResult: any = await PaymentService.processPayment(totalCalculado, card_info || {})
-
+        // Integração com o serviço de pagamentos (Gateways)
+        const paymentResult = await PaymentService.processPayment(totalAmount, card_info || {}, user.email)
         if (!paymentResult.success) {
             return response.paymentRequired({
                 message: 'Falha na comunicação com o Gateway ou pagamento recusado.',
-                detalhe: paymentResult.error,
+                error: paymentResult.error,
             })
         }
 
-        // Pegamos os 4 últimos dígitos do cartão (com uma checagem de segurança)
-        const ultimosDigitos = card_info?.cardNumber ? card_info.cardNumber.slice(-4) : null
+        const cardLastNumbers = card_info?.cardNumber ? card_info.cardNumber.slice(-4) : null
 
-        // Gravação da transação no banco de dados
+        // Persistência da transação
         const transaction = await Transaction.create({
             userId: user.id,
             clientId: client_id,
-            amount: totalCalculado,
+            amount: totalAmount,
             gateway: paymentResult.gateway,
-            status: 'completed',
-            cardLastNumbers: ultimosDigitos, // Salvando os 4 últimos dígitos do cartão na transação
-            externalId: paymentResult.externalId, // AQUI: A nossa "nota fiscal" do gateway!
+            status: TransactionStatus.COMPLETED,
+            cardLastNumbers: cardLastNumbers,
+            externalId: paymentResult.externalId,
         })
-        // Gravação dos itens (Tabela Pivot)
-        for (const item of listaParaSalvar) {
+
+        // Persistência dos itens na tabela pivot
+        for (const item of productsToSave) {
             await TransactionProduct.create({
                 transactionId: transaction.id,
                 productId: item.productId,
@@ -61,16 +61,21 @@ export default class TransactionsController {
             })
         }
 
-        return response.ok({
-            message: 'Venda Nível 3 concluída com sucesso e ligada ao cliente!',
-            total_pago: totalCalculado,
-            gateway_id_externo: paymentResult.externalId,
-            cartao_final: ultimosDigitos // Retornando para você ver no Thunder Client
+        return response.created({
+            message: 'Transação concluída com sucesso.',
+            transaction: {
+                id: transaction.id,
+                totalAmount: totalAmount,
+
+                gateway: GatewayNames[paymentResult.gateway as keyof typeof GatewayNames],
+                externalId: paymentResult.externalId,
+                cardLastNumbers: cardLastNumbers
+            }
         })
     }
 
     /**
-     * Listar todas as compras (Exigido pelo Guia)
+     * Lista todas as transações cadastradas
      */
     async index({ response }: HttpContext) {
         const transactions = await Transaction.all()
@@ -78,8 +83,8 @@ export default class TransactionsController {
     }
 
     /**
-       * Detalhes de uma compra específica (Exigido pelo Guia)
-       */
+     * Retorna os detalhes de uma transação específica
+     */
     async show({ params, response }: HttpContext) {
         try {
             const transaction = await Transaction.query()
@@ -87,29 +92,28 @@ export default class TransactionsController {
                 .preload('user')
                 .preload('client')
                 .firstOrFail()
+
             return response.ok(transaction)
         } catch (error) {
             return response.notFound({ message: 'Transação não encontrada.' })
         }
-    } // <-- Fim da função show
+    }
 
-    // 👇 COLAMOS A FUNÇÃO NOVA AQUI:
-
-    // --- Função de Reembolso (Chargeback) ---
-    public async chargeback({ params, response }: HttpContext) {
-        // 1. Procuramos a transação no banco de dados
+    /**
+     * Processa o estorno (Chargeback) de uma transação
+     */
+    async chargeback({ params, response }: HttpContext) {
         const transaction = await Transaction.find(params.id)
 
         if (!transaction) {
             return response.notFound({ message: 'Transação não encontrada.' })
         }
 
-        // 2. Verificamos se ela já foi cancelada antes
-        if (transaction.status === 'refunded' || transaction.status === 'chargeback') {
+
+        if (transaction.status === TransactionStatus.REFUNDED) {
             return response.badRequest({ message: 'Esta transação já foi estornada anteriormente.' })
         }
 
-        // 3. Pedimos para a nossa "Mente Mestra" (PaymentService) ir cancelar no Gateway
         const refundResult: any = await PaymentService.refundPayment(transaction)
 
         if (!refundResult.success) {
@@ -119,15 +123,14 @@ export default class TransactionsController {
             })
         }
 
-        // 4. Se o Gateway devolveu o dinheiro, atualizamos nosso banco de dados
-        transaction.status = 'refunded'
+
+        transaction.status = TransactionStatus.REFUNDED
         await transaction.save()
 
         return response.ok({
-            message: 'Estorno realizado com sucesso!',
-            transaction_id: transaction.id,
+            message: 'Estorno realizado com sucesso.',
+            transactionId: transaction.id,
             status: transaction.status
         })
-    } 
-
+    }
 }

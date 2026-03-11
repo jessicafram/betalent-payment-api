@@ -1,133 +1,125 @@
 import axios from 'axios'
+import { PaymentGateway } from '../enums/payment_enums.js'
+import Transaction from '#models/transaction' // 👈 Importação do Model para tipagem forte!
+
+export interface CardData {
+    name?: string
+    cardNumber: string
+    cvv: string
+}
+
+export type PaymentResult =
+    | { success: true; gateway: PaymentGateway; externalId: string }
+    | { success: false; error: string; detalhes?: any }
 
 export default class PaymentService {
-    private static g1Url = 'http://localhost:3001'
-    private static g2Url = 'http://localhost:3002'
+    private static g1Url = process.env.G1_URL
+    private static g1Email = process.env.G1_EMAIL
+    private static g1Token = process.env.G1_TOKEN
 
-    /**
-     * A Mente Mestra: Tenta o Gateway 1. Se falhar, tenta o Gateway 2.
-     */
-    public static async processPayment(totalAmount: number, cardData: any) {
-        console.log('Iniciando pagamento... Tentando Gateway 1');
-        const resultG1 = await this.processWithGateway1(totalAmount, cardData);
+    private static g2Url = process.env.G2_URL
+    private static g2Token = process.env.G2_TOKEN
+    private static g2Secret = process.env.G2_SECRET
 
-        if (resultG1.success) {
-            console.log('Pago com sucesso no Gateway 1');
-            return resultG1;
-        }
+    // 👇 Instância reutilizável do Axios (Melhor prática)
+    private static httpClient = axios.create({
+        timeout: 5000
+    })
 
-        console.log('Gateway 1 recusou. Tentando Gateway 2 (Fallback)...');
-        const resultG2 = await this.processWithGateway2(totalAmount, cardData);
+    public static async processPayment(totalAmount: number, cardData: CardData, customerEmail: string): Promise<PaymentResult> {
+        const gateway1 = await this.processGateway1(totalAmount, cardData, customerEmail)
+        if (gateway1.success) return gateway1
 
-        if (resultG2.success) {
-            console.log('Pago com sucesso no Gateway 2');
-            return resultG2;
-        }
+        const gateway2 = await this.processGateway2(totalAmount, cardData, customerEmail)
+        if (gateway2.success) return gateway2
 
-        // Se os dois recusarem
         return {
             success: false,
             error: 'Pagamento recusado em todos os gateways.',
-            detalhes: { gateway1: resultG1.error, gateway2: resultG2.error }
-        };
+            detalhes: { gateway1: gateway1.error, gateway2: gateway2.error }
+        }
     }
 
-    /**
-     * Integração com Gateway 1
-     */
-    public static async processWithGateway1(totalAmount: number, cardData: any) {
-        try {
-            const login = await axios.post(`${this.g1Url}/login`, {
-                email: "dev@betalent.tech",
-                token: "FEC9BB078BF338F464F96B48089EB498"
-            });
-            const token = login.data.token;
+    private static async authenticateGateway1(): Promise<string> {
+        const response = await this.httpClient.post(`${this.g1Url}/login`, {
+            email: this.g1Email,
+            token: this.g1Token
+        })
+        return response.data.token
+    }
 
-            const response = await axios.post(
+    private static async processGateway1(totalAmount: number, cardData: CardData, customerEmail: string): Promise<PaymentResult> {
+        try {
+            const token = await this.authenticateGateway1()
+
+            const response = await this.httpClient.post(
                 `${this.g1Url}/transactions`,
                 {
                     amount: Math.round(totalAmount * 100),
-                    name: cardData.name || "Cliente Teste",
-                    email: "teste@email.com",
+                    name: cardData.name || 'Cliente',
+                    email: customerEmail,
                     cardNumber: cardData.cardNumber,
                     cvv: cardData.cvv
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
-            );
+            )
 
-            return { success: true, gateway: 'BeTalent Gateway 1', externalId: response.data.id };
+            return { success: true, gateway: PaymentGateway.GATEWAY_1, externalId: response.data.id }
         } catch (error: any) {
-            return { success: false, error: error.response?.data?.error || 'Gateway 1 Indisponível' };
+            return { success: false, error: error.response?.data?.error || 'Gateway 1 Indisponível' }
         }
     }
 
-    /**
-     * Integração com Gateway 2
-     */
-    public static async processWithGateway2(totalAmount: number, cardData: any) {
+    private static async processGateway2(totalAmount: number, cardData: CardData, customerEmail: string): Promise<PaymentResult> {
         try {
-            const response = await axios.post(
+            const response = await this.httpClient.post(
                 `${this.g2Url}/transacoes`,
                 {
                     valor: Math.round(totalAmount * 100),
-                    nome: cardData.name || "Cliente Teste",
-                    email: "teste@email.com",
+                    nome: cardData.name || 'Cliente',
+                    email: customerEmail,
                     numeroCartao: cardData.cardNumber,
                     cvv: cardData.cvv
                 },
                 {
                     headers: {
-                        'Gateway-Auth-Token': 'tk_f2198cc671b5289fa856',
-                        'Gateway-Auth-Secret': '3d15e8ed6131446ea7e3456728b1211f'
+                        'Gateway-Auth-Token': this.g2Token,
+                        'Gateway-Auth-Secret': this.g2Secret
                     }
                 }
-            );
+            )
 
-            return { success: true, gateway: 'BeTalent Gateway 2', externalId: response.data.id };
+            return { success: true, gateway: PaymentGateway.GATEWAY_2, externalId: response.data.id }
         } catch (error: any) {
-            return { success: false, error: error.response?.data?.error || 'Gateway 2 Indisponível' };
+            return { success: false, error: error.response?.data?.error || 'Gateway 2 Indisponível' }
         }
     }
 
-    /**
-     * Integração de Reembolso (Chargeback)
-     */
-    public static async refundPayment(transaction: any) {
+    // 👇 Tipagem forte aplicada ao parâmetro `transaction`
+    public static async refundPayment(transaction: Transaction): Promise<{ success: boolean; error?: string }> {
         try {
-            if (transaction.gateway === 'BeTalent Gateway 1') {
-                // Estorno no Gateway 1
-                const login = await axios.post(`${this.g1Url}/login`, {
-                    email: "dev@betalent.tech",
-                    token: "FEC9BB078BF338F464F96B48089EB498"
-                });
-                const token = login.data.token;
-
-                await axios.post(
+            if (transaction.gateway === PaymentGateway.GATEWAY_1) {
+                const token = await this.authenticateGateway1()
+                await this.httpClient.post(
                     `${this.g1Url}/transactions/${transaction.externalId}/chargeback`,
                     {},
                     { headers: { Authorization: `Bearer ${token}` } }
-                );
-                return { success: true };
-
-            } else if (transaction.gateway === 'BeTalent Gateway 2') {
-                // Estorno no Gateway 2
-                await axios.post(
-                    `${this.g2Url}/transacoes/${transaction.externalId}/estorno`,
-                    {},
-                    {
-                        headers: {
-                            'Gateway-Auth-Token': 'tk_f2198cc671b5289fa856',
-                            'Gateway-Auth-Secret': '3d15e8ed6131446ea7e3456728b1211f'
-                        }
-                    }
-                );
-                return { success: true };
+                )
+                return { success: true }
             }
 
-            return { success: false, error: 'Gateway desconhecido.' };
+            if (transaction.gateway === PaymentGateway.GATEWAY_2) {
+                await this.httpClient.post(
+                    `${this.g2Url}/transacoes/${transaction.externalId}/estorno`,
+                    {},
+                    { headers: { 'Gateway-Auth-Token': this.g2Token, 'Gateway-Auth-Secret': this.g2Secret } }
+                )
+                return { success: true }
+            }
 
+            return { success: false, error: 'Gateway desconhecido para estorno.' }
         } catch (error: any) {
-            return { success: false, error: error.response?.data?.error || 'Erro de comunicação com o Gateway.' };
+            return { success: false, error: error.response?.data?.error || 'Erro na comunicação do estorno.' }
         }
     }
 }

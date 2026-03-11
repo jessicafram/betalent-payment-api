@@ -2,7 +2,8 @@ import { DateTime } from 'luxon'
 import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
-import Client from './client.ts'
+import Client from '#models/client'
+import { TransactionStatus, PaymentGateway } from '../enums/payment_enums.js'
 
 export default class Transaction extends BaseModel {
     @column({ isPrimary: true })
@@ -12,13 +13,22 @@ export default class Transaction extends BaseModel {
     declare userId: number
 
     @column()
+    declare clientId: number
+
+    @column()
     declare amount: number
 
     @column()
-    declare gateway: string
+    declare gateway: PaymentGateway
 
     @column()
-    declare status: string
+    declare status: TransactionStatus
+
+    @column()
+    declare cardLastNumbers: string | null
+
+    @column()
+    declare externalId: string | null
 
     @column.dateTime({ autoCreate: true })
     declare createdAt: DateTime
@@ -29,16 +39,6 @@ export default class Transaction extends BaseModel {
     @belongsTo(() => User)
     declare user: BelongsTo<typeof User>
 
-    @column()
-    declare clientId: number
-
-    // E a relação com o cliente no final:
     @belongsTo(() => Client)
     declare client: BelongsTo<typeof Client>
-
-    @column()
-    declare cardLastNumbers: string
-
-    @column()
-    declare externalId: string | null
 }

@@ -1,33 +1,44 @@
-# BeTalent Payment API
+# 💳 BeTalent Payment API
 
-API RESTful desenvolvida para o teste técnico da BeTalent. O sistema simula um processamento de pagamentos com roteamento inteligente entre dois gateways diferentes (Strategy Pattern) e sistema de Fallback.
+![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![AdonisJS](https://img.shields.io/badge/adonisjs-220052?style=for-the-badge&logo=adonisjs&logoColor=white)
+![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?style=for-the-badge&logo=mysql&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
-## Tecnologias Utilizadas
-* **Framework:** AdonisJS v6 (TypeScript)
-* **Banco de Dados:** MySQL 8.0
-* **Infraestrutura:** Docker & Docker Compose
-* **Autenticação:** JWT (Lucid Auth)
+**RESTful payment processing API with multi-gateway failover, role-based access control (RBAC), and full chargeback support.**
+
+This system was developed as part of the BeTalent technical challenge and implements a full checkout, payment processing, and financial management workflow.
+
+🎯 **Target Level: Level 3 (Advanced)**
+All Level 3 requirements were successfully implemented, including backend price calculation from multiple products, strong typing, strict gateway authentication, role-based access control (ADMIN, MANAGER, FINANCE, USER), and complex chargeback integration.
 
 ---
 
-## Como rodar o projeto localmente
+## 🏗️ System Architecture & Design Patterns
 
-### Pré-requisitos
-* Node.js instalado
-* Docker e Docker Desktop rodando
+The application follows a modular architecture focused on the separation of concerns, heavily utilizing the **Service Layer Pattern** and the **Strategy/Failover Pattern**.
 
-### Passo a Passo
+### Architectural Layers
+* **Controller Layer:** Handles HTTP requests, input validation, and payload responses.
+* **Service Layer:** Contains the core business logic, gateway orchestration, and external integrations.
+* **Model Layer:** Responsible for database persistence and relationships using the AdonisJS Lucid ORM.
 
-1. **Instale as dependências:**
-   ```bash
-   npm install
+### 1. High Availability Payment Processing (Failover Strategy)
+The core processing logic is abstracted into the `PaymentService`. The system uses a *Gateway Redundancy* pattern to ensure high availability. If the original request fails due to network errors or provider refusal, the system performs an automatic and invisible retry (Failover) on the secondary approved gateway.
 
-   2. **Configure as Variáveis de Ambiente:**
-   Copie o arquivo `.env.example` para `.env` e ajuste as credenciais do banco:
-   ```env
-   DB_CONNECTION=mysql
-   DB_HOST=127.0.0.1
-   DB_PORT=3306
-   DB_USER=root
-   DB_PASSWORD=root
-   DB_DATABASE=betalent_payment
+**Payment Flow Architecture Diagram:**
+```text
+Client Application
+       │
+       ▼
+  AdonisJS API (TransactionsController)
+       │
+       ▼
+ PaymentService (Failover Engine)
+       │
+       ├──► [Gateway 1] ── (Success) ──┐
+       │                               │
+   (Failure)                           ▼
+       │                  Transaction Persistence (MySQL)
+       └──► [Gateway 2] ───────────────┘
