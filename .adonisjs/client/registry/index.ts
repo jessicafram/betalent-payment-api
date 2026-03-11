@@ -30,6 +30,42 @@ const routes = {
     tokens: [{"old":"/checkout","type":0,"val":"checkout","end":""}],
     types: placeholder as Registry['transactions.store']['types'],
   },
+  'clients.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/clients',
+    tokens: [{"old":"/clients","type":0,"val":"clients","end":""}],
+    types: placeholder as Registry['clients.index']['types'],
+  },
+  'clients.store': {
+    methods: ["POST"],
+    pattern: '/clients',
+    tokens: [{"old":"/clients","type":0,"val":"clients","end":""}],
+    types: placeholder as Registry['clients.store']['types'],
+  },
+  'clients.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/clients/:id',
+    tokens: [{"old":"/clients/:id","type":0,"val":"clients","end":""},{"old":"/clients/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['clients.show']['types'],
+  },
+  'transactions.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/transactions',
+    tokens: [{"old":"/transactions","type":0,"val":"transactions","end":""}],
+    types: placeholder as Registry['transactions.index']['types'],
+  },
+  'transactions.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/transactions/:id',
+    tokens: [{"old":"/transactions/:id","type":0,"val":"transactions","end":""},{"old":"/transactions/:id","type":1,"val":"id","end":""}],
+    types: placeholder as Registry['transactions.show']['types'],
+  },
+  'transactions.chargeback': {
+    methods: ["POST"],
+    pattern: '/transactions/:id/chargeback',
+    tokens: [{"old":"/transactions/:id/chargeback","type":0,"val":"transactions","end":""},{"old":"/transactions/:id/chargeback","type":1,"val":"id","end":""},{"old":"/transactions/:id/chargeback","type":0,"val":"chargeback","end":""}],
+    types: placeholder as Registry['transactions.chargeback']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

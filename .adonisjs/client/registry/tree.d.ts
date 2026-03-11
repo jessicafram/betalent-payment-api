@@ -11,5 +11,13 @@ export interface ApiDefinition {
   }
   transactions: {
     store: typeof routes['transactions.store']
+    index: typeof routes['transactions.index']
+    show: typeof routes['transactions.show']
+    chargeback: typeof routes['transactions.chargeback']
+  }
+  clients: {
+    index: typeof routes['clients.index']
+    store: typeof routes['clients.store']
+    show: typeof routes['clients.show']
   }
 }
