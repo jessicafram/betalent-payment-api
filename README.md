@@ -30,6 +30,54 @@ The project focuses on demonstrating backend architecture, fault tolerance, and 
 
 # System Architecture
 
+## 🏗️ Architecture Overview
+
+The system was designed with a clear separation of concerns, ensuring scalability and maintainability.
+
+### Request Flow
+```mermaid
+flowchart TD
+A[Client Application] --> B[API Gateway / Routing]
+B --> C[Auth Middleware]
+C --> D[Role Middleware]
+D --> E[TransactionsController]
+E --> F[Idempotency Check]
+F --> G[PaymentService]
+G --> H{Primary Gateway}
+H -->|Failure| I[Secondary Gateway]
+H -->|Success| J[Start DB Transaction]
+I -->|Success| J
+J --> K[(MySQL Database)]
+```
+
+### System Sequence Diagram
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant PaymentService
+    participant Gateways
+    participant Database
+
+    Client->>API: POST /transactions
+    API->>API: Auth & Role Check
+    API->>API: Check Idempotency-Key
+    
+    alt Transaction exists
+        API-->>Client: Return existing (200 OK)
+    else New Transaction
+        API->>PaymentService: processPayment()
+        PaymentService->>Gateways: Charge (Gateway 1)
+        alt Gateway 1 Fails
+            PaymentService->>Gateways: Retry (Gateway 2)
+        end
+        Gateways-->>PaymentService: Approved
+        PaymentService-->>API: Success
+        API->>Database: Commit Transaction
+        API-->>Client: Payment Success (201 Created)
+    end
+```
+
 The application follows a modular architecture emphasizing maintainability, separation of concerns, and resilience.
 
 Two architectural patterns guide the design:
