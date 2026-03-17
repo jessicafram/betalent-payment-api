@@ -34,6 +34,7 @@ The project focuses on demonstrating backend architecture, fault tolerance, and 
 
 The system was designed with a clear separation of concerns, ensuring scalability and maintainability.
 
+### Request Flow
 ```mermaid
 flowchart TD
 A[Client Application] --> B[API Gateway / Routing]
@@ -48,6 +49,7 @@ H -->|Failure| I[Fallback Gateway]
 H -->|Success| J[Start DB Transaction]
 I -->|Success| J
 J --> K[(MySQL Database)]
+```
 
 ### System Sequence Diagram
 ```mermaid
@@ -59,7 +61,7 @@ sequenceDiagram
     participant Gateways
     participant Database
 
-    Client->>API: POST /checkout
+    Client->>API: POST /transactions
     API->>API: Auth & Role Check
     API->>API: Check Idempotency-Key
     
@@ -81,6 +83,7 @@ sequenceDiagram
         API->>Database: Commit Transaction
         API-->>Client: Payment Success (201 Created)
     end
+```
 
 The application follows a modular architecture emphasizing maintainability, separation of concerns, and resilience.
 
@@ -116,6 +119,9 @@ This retry process occurs transparently to the client application.
 
 ---
 
+## Payment Flow
+
+```text
 Client Application
        │
        ▼
@@ -131,15 +137,16 @@ PaymentService (Failover Engine)
    (Failure)                              ▼
        │                     Transaction Persistence (MySQL)
        └──► Fallback Gateway ─────────────┘
+```
 
----       
 ### 🧠 Resilience, AI & Data Integrity
 
-To ensure enterprise-grade reliability and zero data loss, the payment flow implements three advanced architectural patterns:
+To ensure enterprise-grade reliability, the payment flow also implements:
 
 - **Predictive Resilience (AI & Z-Score):** A custom middleware acts as a sentry, analyzing gateway response times in real-time. Using Z-Score statistical calculation, the system detects latency anomalies and automatically routes transactions to a contingency gateway *before* a timeout cascade occurs.
-- **Idempotency:** The API requires an `Idempotency-Key` header for checkout requests. This prevents duplicate charges in case of network retries, client-side lag, or accidental double-clicks by the user.
-- **ACID Transactions:** All core database operations (creating the main transaction, linking purchased products, and updating status) are wrapped in DB Transactions (`trx.rollback()`). If any micro-step fails, the entire operation is rolled back, preventing orphaned data or inconsistent financial states.
+- **Idempotency:** The API requires an `Idempotency-Key` header for checkout requests. This prevents duplicate charges in case of network retries or accidental double-clicks by the user.
+- **ACID Transactions:** All database operations (e.g., creating the main transaction and linking purchased products) are wrapped in Database Transactions. If any step fails, the entire operation is rolled back, preventing orphaned data or inconsistent financial states.
+
 ---
 
 # Role-Based Access Control
@@ -171,7 +178,7 @@ Backend technologies used in this project:
 
 Example of the main project structure:
 
-```
+```text
 app/
  ├── Controllers/
  ├── Services/
@@ -195,7 +202,7 @@ The architecture separates business logic from HTTP concerns and persistence, im
 Clone the repository:
 
 ```bash
-git clone https://github.com/your-user/betalent-payment-api.git
+git clone [https://github.com/your-user/betalent-payment-api.git](https://github.com/your-user/betalent-payment-api.git)
 ```
 
 Navigate to the project directory:
@@ -234,7 +241,7 @@ docker compose up
 
 Create a payment transaction:
 
-```
+```http
 POST /transactions
 ```
 
