@@ -1,6 +1,9 @@
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 
+router.post('/payments', '#controllers/payments_controller.handle')
+  .use(middleware.predictiveResilience())
+
 const AuthController = () => import('#controllers/auth_controller')
 const ProductsController = () => import('#controllers/products_controller')
 const TransactionsController = () => import('#controllers/transactions_controller')
@@ -14,28 +17,28 @@ router.get('/', async () => {
 // Rotas Públicas
 router.post('/login', [AuthController, 'login'])
 
-// Rotas Privadas (Exigem Autenticação via Token)
+// --- Rotas Privadas (Exigem Autenticação) ---
 router.group(() => {
 
-  // --- Produtos ---
-  router.get('/products', [ProductsController, 'index'])
-  router.post('/products', [ProductsController, 'store']).use(
-    middleware.role(['ADMIN', 'MANAGER', 'FINANCE'])
-  )
+  // Produtos
+  router.get('/products', '#controllers/products_controller.index')
+  router.post('/products', '#controllers/products_controller.store')
+    .use(middleware.role(['ADMIN', 'MANAGER', 'FINANCE']))
 
-  // --- Clientes ---
-  router.get('/clients', [ClientsController, 'index'])
-  router.post('/clients', [ClientsController, 'store'])
-  router.get('/clients/:id', [ClientsController, 'show'])
+  // Clientes
+  router.get('/clients', '#controllers/clients_controller.index')
+  router.post('/clients', '#controllers/clients_controller.store')
+  router.get('/clients/:id', '#controllers/clients_controller.show')
 
-  // --- Transações e Checkout ---
-  router.post('/checkout', [TransactionsController, 'store'])
-  router.get('/transactions', [TransactionsController, 'index'])
-  router.get('/transactions/:id', [TransactionsController, 'show'])
+  // Transações e Checkout
+  router.post('/checkout', '#controllers/transactions_controller.store')
+    .use(middleware.predictiveResilience()) // Nossa IA aqui!
 
-  // Estorno / Chargeback (Acesso restrito a cargos de gestão e financeiro)
-  router.post('/transactions/:id/chargeback', [TransactionsController, 'chargeback']).use(
-    middleware.role(['ADMIN', 'MANAGER', 'FINANCE'])
-  )
+  router.get('/transactions', '#controllers/transactions_controller.index')
+  router.get('/transactions/:id', '#controllers/transactions_controller.show')
+
+  // Estorno / Chargeback
+  router.post('/transactions/:id/chargeback', '#controllers/transactions_controller.chargeback')
+    .use(middleware.role(['ADMIN', 'MANAGER', 'FINANCE']))
 
 }).use(middleware.auth())

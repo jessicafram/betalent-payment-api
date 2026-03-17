@@ -34,49 +34,52 @@ The project focuses on demonstrating backend architecture, fault tolerance, and 
 
 The system was designed with a clear separation of concerns, ensuring scalability and maintainability.
 
-### Request Flow
-```mermaid
 flowchart TD
 A[Client Application] --> B[API Gateway / Routing]
 B --> C[Auth Middleware]
 C --> D[Role Middleware]
-D --> E[TransactionsController]
+D --> Z[AI Predictive Resilience]
+Z --> E[TransactionsController]
 E --> F[Idempotency Check]
 F --> G[PaymentService]
-G --> H{Primary Gateway}
-H -->|Failure| I[Secondary Gateway]
+G --> H{Target Gateway}
+H -->|Failure| I[Fallback Gateway]
 H -->|Success| J[Start DB Transaction]
 I -->|Success| J
 J --> K[(MySQL Database)]
-```
 
 ### System Sequence Diagram
 ```mermaid
 sequenceDiagram
     participant Client
     participant API
+    participant AI_Middleware as IA Preditiva (Z-Score)
     participant PaymentService
     participant Gateways
     participant Database
 
-    Client->>API: POST /transactions
+    Client->>API: POST /checkout
     API->>API: Auth & Role Check
     API->>API: Check Idempotency-Key
     
     alt Transaction exists
         API-->>Client: Return existing (200 OK)
     else New Transaction
+        API->>AI_Middleware: Analisa Latência Histórica
+        AI_Middleware-->>API: Define Target Gateway (Principal ou Backup)
         API->>PaymentService: processPayment()
-        PaymentService->>Gateways: Charge (Gateway 1)
-        alt Gateway 1 Fails
-            PaymentService->>Gateways: Retry (Gateway 2)
+        PaymentService->>Gateways: Charge (Target Gateway)
+        
+        alt Gateway Fails
+            PaymentService->>Gateways: Retry (Fallback Gateway)
         end
+        
         Gateways-->>PaymentService: Approved
         PaymentService-->>API: Success
+        API->>AI_Middleware: Registra Latência da Requisição
         API->>Database: Commit Transaction
         API-->>Client: Payment Success (201 Created)
     end
-```
 
 The application follows a modular architecture emphasizing maintainability, separation of concerns, and resilience.
 
@@ -112,30 +115,30 @@ This retry process occurs transparently to the client application.
 
 ---
 
-## Payment Flow
-
-```
 Client Application
        │
        ▼
 AdonisJS API (TransactionsController)
        │
+       ├─► [AI Middleware: Analyzes Latency]
+       │
        ▼
 PaymentService (Failover Engine)
        │
-       ├──► Gateway 1 ── (Success) ──┐
-       │                             │
-   (Failure)                         ▼
-       │                Transaction Persistence (MySQL)
-       └──► Gateway 2 ───────────────┘
-```
-### Resilience & Data Integrity
+       ├──► Target Gateway ── (Success) ──┐
+       │                                  │
+   (Failure)                              ▼
+       │                     Transaction Persistence (MySQL)
+       └──► Fallback Gateway ─────────────┘
 
-To ensure enterprise-grade reliability, the payment flow also implements:
+---       
+### 🧠 Resilience, AI & Data Integrity
 
-- **Idempotency:** The API requires an `Idempotency-Key` header for checkout requests. This prevents duplicate charges in case of network retries or accidental double-clicks by the user.
-- **ACID Transactions:** All database operations (e.g., creating the main transaction and linking purchased products) are wrapped in Database Transactions. If any step fails, the entire operation is rolled back, preventing orphaned data or inconsistent financial states.
+To ensure enterprise-grade reliability and zero data loss, the payment flow implements three advanced architectural patterns:
 
+- **Predictive Resilience (AI & Z-Score):** A custom middleware acts as a sentry, analyzing gateway response times in real-time. Using Z-Score statistical calculation, the system detects latency anomalies and automatically routes transactions to a contingency gateway *before* a timeout cascade occurs.
+- **Idempotency:** The API requires an `Idempotency-Key` header for checkout requests. This prevents duplicate charges in case of network retries, client-side lag, or accidental double-clicks by the user.
+- **ACID Transactions:** All core database operations (creating the main transaction, linking purchased products, and updating status) are wrapped in DB Transactions (`trx.rollback()`). If any micro-step fails, the entire operation is rolled back, preventing orphaned data or inconsistent financial states.
 ---
 
 # Role-Based Access Control

@@ -8,8 +8,10 @@
 |
 */
 
+
 import router from '@adonisjs/core/services/router'
 import server from '@adonisjs/core/services/server'
+
 
 /**
  * The error handler is used to convert an exception
@@ -45,6 +47,9 @@ router.use([
  * the routes or the routes group.
  */
 export const middleware = router.named({
-  role: () => import('#middleware/role_middleware'),
-  auth: () => import('#middleware/auth_middleware'),
+  predictiveResilience: () => import('#middleware/predictive_resilience_middleware'),
+
+  // Adicione estas linhas abaixo para o VS Code reconhecer o role e o auth:
+  role: () => import('#middleware/role_middleware'), // Verifique se o nome do arquivo é este mesmo
+  auth: () => import('#middleware/auth_middleware')  // Verifique se o nome do arquivo é este mesmo
 })
