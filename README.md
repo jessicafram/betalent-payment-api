@@ -34,6 +34,7 @@ The project focuses on demonstrating backend architecture, fault tolerance, and 
 
 The system was designed with a clear separation of concerns, ensuring scalability and maintainability.
 
+```mermaid
 flowchart TD
 A[Client Application] --> B[API Gateway / Routing]
 B --> C[Auth Middleware]
